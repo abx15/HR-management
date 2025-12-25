@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { MainLayout } from '@/components/layout/MainLayout';
 import { Button } from '@/components/ui/button';
@@ -11,42 +11,137 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { mockUsers, mockDepartments, mockPositions } from '@/data/mockData';
-import { ArrowLeft, Save, Upload } from 'lucide-react';
+import { mockDepartments, mockPositions } from '@/data/mockData';
+import { ArrowLeft, Save, Upload, Loader } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
+import { employeeService } from '@/services/mockDataService';
 
 export default function EmployeeForm() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const { toast } = useToast();
   const isEditing = id && id !== 'new';
-  
-  const existingEmployee = isEditing ? mockUsers.find(u => u.id === id) : null;
 
+  const [loading, setLoading] = useState(false);
+  const [submitting, setSubmitting] = useState(false);
   const [formData, setFormData] = useState({
-    name: existingEmployee?.name || '',
-    email: existingEmployee?.email || '',
-    phone: existingEmployee?.phone || '',
-    department: existingEmployee?.department || '',
-    position: existingEmployee?.position || '',
-    role: existingEmployee?.role || 'EMPLOYEE',
-    status: existingEmployee?.status || 'Active',
-    joiningDate: existingEmployee?.joiningDate || '',
-    basicSalary: existingEmployee?.salaryStructure?.basic?.toString() || '',
+    name: '',
+    email: '',
+    phone: '',
+    department: '',
+    position: '',
+    role: 'EMPLOYEE' as const,
+    status: 'Active' as const,
+    joiningDate: '',
+    basicSalary: '',
+    profileImage: '',
   });
 
-  const handleSubmit = (e: React.FormEvent) => {
+  // Load employee data if editing
+  useEffect(() => {
+    if (isEditing && id) {
+      loadEmployee(id);
+    }
+  }, [isEditing, id]);
+
+  const loadEmployee = async (employeeId: string) => {
+    try {
+      setLoading(true);
+      const employee = await employeeService.getById(employeeId);
+      setFormData({
+        name: employee.name,
+        email: employee.email,
+        phone: employee.phone,
+        department: employee.department,
+        position: employee.position,
+        role: employee.role,
+        status: employee.status,
+        joiningDate: employee.joiningDate,
+        basicSalary: employee.salaryStructure?.basic?.toString() || '',
+        profileImage: employee.profileImage || '',
+      });
+    } catch (error) {
+      toast({
+        title: "Error",
+        description: "Failed to load employee data",
+        variant: "destructive",
+      });
+      navigate('/employees');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    toast({
-      title: isEditing ? "Employee Updated" : "Employee Added",
-      description: `${formData.name} has been ${isEditing ? 'updated' : 'added'} successfully.`,
-    });
-    navigate('/employees');
+    
+    // Validate required fields
+    if (!formData.name || !formData.email || !formData.department || !formData.position || !formData.joiningDate) {
+      toast({
+        title: "Validation Error",
+        description: "Please fill in all required fields",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    try {
+      setSubmitting(true);
+      const submitData = {
+        name: formData.name,
+        email: formData.email,
+        phone: formData.phone,
+        department: formData.department,
+        position: formData.position,
+        role: formData.role,
+        status: formData.status,
+        joiningDate: formData.joiningDate,
+        profileImage: formData.profileImage,
+        salaryStructure: {
+          basic: parseInt(formData.basicSalary) || 0,
+          allowances: { housing: 0, transport: 0, medical: 0, other: 0 },
+          deductions: { tax: 0, insurance: 0, other: 0 }
+        }
+      };
+
+      if (isEditing && id) {
+        await employeeService.update(id, submitData);
+        toast({
+          title: "Success",
+          description: `${formData.name} has been updated successfully.`,
+        });
+      } else {
+        await employeeService.create(submitData);
+        toast({
+          title: "Success",
+          description: `${formData.name} has been added successfully.`,
+        });
+      }
+      navigate('/employees');
+    } catch (error) {
+      toast({
+        title: "Error",
+        description: isEditing ? "Failed to update employee" : "Failed to add employee",
+        variant: "destructive",
+      });
+    } finally {
+      setSubmitting(false);
+    }
   };
 
   const handleChange = (field: string, value: string) => {
     setFormData(prev => ({ ...prev, [field]: value }));
   };
+
+  if (loading) {
+    return (
+      <MainLayout>
+        <div className="flex items-center justify-center py-12">
+          <Loader className="w-8 h-8 animate-spin text-primary" />
+        </div>
+      </MainLayout>
+    );
+  }
 
   return (
     <MainLayout>
@@ -68,8 +163,8 @@ export default function EmployeeForm() {
             <h2 className="text-lg font-semibold mb-4">Profile Photo</h2>
             <div className="flex items-center gap-6">
               <div className="w-24 h-24 rounded-2xl bg-secondary flex items-center justify-center overflow-hidden">
-                {existingEmployee?.profileImage ? (
-                  <img src={existingEmployee.profileImage} alt="Profile" className="w-full h-full object-cover" />
+                {formData.profileImage ? (
+                  <img src={formData.profileImage} alt="Profile" className="w-full h-full object-cover" />
                 ) : (
                   <span className="text-3xl font-bold text-muted-foreground">
                     {formData.name.charAt(0) || '?'}
@@ -215,9 +310,18 @@ export default function EmployeeForm() {
             <Button type="button" variant="outline" onClick={() => navigate(-1)}>
               Cancel
             </Button>
-            <Button type="submit" className="gap-2">
-              <Save className="w-4 h-4" />
-              {isEditing ? 'Update Employee' : 'Add Employee'}
+            <Button type="submit" disabled={submitting} className="gap-2">
+              {submitting ? (
+                <>
+                  <Loader className="w-4 h-4 animate-spin" />
+                  {isEditing ? 'Updating...' : 'Adding...'}
+                </>
+              ) : (
+                <>
+                  <Save className="w-4 h-4" />
+                  {isEditing ? 'Update Employee' : 'Add Employee'}
+                </>
+              )}
             </Button>
           </div>
         </form>

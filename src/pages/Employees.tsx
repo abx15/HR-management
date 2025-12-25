@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { MainLayout } from '@/components/layout/MainLayout';
 import { Button } from '@/components/ui/button';
@@ -10,7 +10,6 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { mockUsers, mockDepartments } from '@/data/mockData';
 import { User } from '@/types';
 import { 
   Search, 
@@ -22,7 +21,8 @@ import {
   Building2,
   Eye,
   Edit,
-  Trash2
+  Trash2,
+  Loader
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import {
@@ -31,15 +31,68 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { useToast } from '@/hooks/use-toast';
+import { employeeService } from '@/services/mockDataService';
+import { mockDepartments } from '@/data/mockData';
 
 export default function Employees() {
+  const [employees, setEmployees] = useState<User[]>([]);
   const [search, setSearch] = useState('');
   const [departmentFilter, setDepartmentFilter] = useState('all');
   const [statusFilter, setStatusFilter] = useState('all');
+  const [loading, setLoading] = useState(true);
+  const [deleteId, setDeleteId] = useState<string | null>(null);
   const { toast } = useToast();
 
-  const filteredEmployees = mockUsers.filter(employee => {
+  // Load employees on mount
+  useEffect(() => {
+    loadEmployees();
+  }, []);
+
+  const loadEmployees = async () => {
+    try {
+      setLoading(true);
+      const data = await employeeService.getAll();
+      setEmployees(data);
+    } catch (error) {
+      toast({
+        title: "Error",
+        description: "Failed to load employees",
+        variant: "destructive",
+      });
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleDelete = async (id: string) => {
+    try {
+      await employeeService.delete(id);
+      setEmployees(employees.filter(e => e.id !== id));
+      toast({
+        title: "Success",
+        description: "Employee has been removed successfully.",
+      });
+      setDeleteId(null);
+    } catch (error) {
+      toast({
+        title: "Error",
+        description: "Failed to delete employee",
+        variant: "destructive",
+      });
+    }
+  };
+
+  const filteredEmployees = employees.filter(employee => {
     const matchesSearch = employee.name.toLowerCase().includes(search.toLowerCase()) ||
       employee.email.toLowerCase().includes(search.toLowerCase());
     const matchesDepartment = departmentFilter === 'all' || employee.department === departmentFilter;
@@ -47,12 +100,6 @@ export default function Employees() {
     return matchesSearch && matchesDepartment && matchesStatus;
   });
 
-  const handleDelete = (id: string) => {
-    toast({
-      title: "Employee Deactivated",
-      description: "The employee has been deactivated successfully.",
-    });
-  };
 
   return (
     <MainLayout>
@@ -106,32 +153,64 @@ export default function Employees() {
         </Select>
       </div>
 
-      {/* Employee Grid */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-        {filteredEmployees.map((employee) => (
-          <EmployeeCard 
-            key={employee.id} 
-            employee={employee} 
-            onDelete={handleDelete}
-          />
-        ))}
-      </div>
-
-      {filteredEmployees.length === 0 && (
-        <div className="text-center py-12">
-          <p className="text-muted-foreground">No employees found matching your criteria.</p>
+      {/* Loading State */}
+      {loading && (
+        <div className="flex items-center justify-center py-12">
+          <Loader className="w-8 h-8 animate-spin text-primary" />
         </div>
       )}
+
+      {/* Employee Grid */}
+      {!loading && (
+        <>
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            {filteredEmployees.map((employee) => (
+              <EmployeeCard 
+                key={employee.id} 
+                employee={employee} 
+                onDeleteClick={() => setDeleteId(employee.id)}
+              />
+            ))}
+          </div>
+
+          {filteredEmployees.length === 0 && (
+            <div className="text-center py-12">
+              <p className="text-muted-foreground">No employees found matching your criteria.</p>
+            </div>
+          )}
+        </>
+      )}
+
+      {/* Delete Confirmation Dialog */}
+      <AlertDialog open={!!deleteId} onOpenChange={(open) => !open && setDeleteId(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete Employee</AlertDialogTitle>
+            <AlertDialogDescription>
+              Are you sure you want to remove this employee? This action cannot be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <div className="flex justify-end gap-3">
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={() => deleteId && handleDelete(deleteId)}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            >
+              Delete
+            </AlertDialogAction>
+          </div>
+        </AlertDialogContent>
+      </AlertDialog>
     </MainLayout>
   );
 }
 
 interface EmployeeCardProps {
   employee: User;
-  onDelete: (id: string) => void;
+  onDeleteClick: () => void;
 }
 
-function EmployeeCard({ employee, onDelete }: EmployeeCardProps) {
+function EmployeeCard({ employee, onDeleteClick }: EmployeeCardProps) {
   return (
     <div className="bg-card rounded-xl border border-border p-6 hover:shadow-elevated transition-shadow group">
       <div className="flex items-start justify-between mb-4">
@@ -168,10 +247,10 @@ function EmployeeCard({ employee, onDelete }: EmployeeCardProps) {
               </Link>
             </DropdownMenuItem>
             <DropdownMenuItem 
-              onClick={() => onDelete(employee.id)}
+              onClick={onDeleteClick}
               className="text-destructive focus:text-destructive"
             >
-              <Trash2 className="w-4 h-4 mr-2" /> Deactivate
+              <Trash2 className="w-4 h-4 mr-2" /> Delete
             </DropdownMenuItem>
           </DropdownMenuContent>
         </DropdownMenu>
