@@ -1,6 +1,7 @@
 import { Link, useLocation } from 'react-router-dom';
 import { cn } from '@/lib/utils';
 import { useAuth } from '@/context/AuthContext';
+import logo from "@/assets/logoHr.png";
 import {
   LayoutDashboard,
   Users,
@@ -59,7 +60,7 @@ export function Sidebar() {
       <div className="h-16 flex items-center px-4 border-b border-sidebar-border">
         <div className="flex items-center gap-3">
           <div className="w-10 h-10 rounded-lg bg-sidebar-primary flex items-center justify-center">
-            <Shield className="w-6 h-6 text-sidebar-primary-foreground" />
+            <img src={logo} alt="WorkForce Logo" className="w-full h-full object-cover" />
           </div>
           {!collapsed && (
             <div className="animate-fade-in">
