@@ -6,6 +6,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Shield, Eye, EyeOff, Loader2 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
+import logo from "@/assets/logoHr.png";
 
 export default function Login() {
   const [email, setEmail] = useState('');
@@ -53,7 +54,7 @@ export default function Login() {
         <div className="relative z-10 flex flex-col justify-center px-12 lg:px-20">
           <div className="flex items-center gap-4 mb-8">
             <div className="w-16 h-16 rounded-2xl bg-white/10 backdrop-blur-sm flex items-center justify-center">
-              <Shield className="w-10 h-10 text-white" />
+              <img src={logo} alt="WorkForce Logo" className="w-full h-full object-cover" />
             </div>
             <div>
               <h1 className="text-4xl font-bold text-white">WorkForce</h1>
