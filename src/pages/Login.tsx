@@ -166,14 +166,14 @@ export default function Login() {
             </Button>
           </form>
 
-          <div className="mt-8 p-4 rounded-xl bg-secondary/50 border border-border">
+          {/* <div className="mt-8 p-4 rounded-xl bg-secondary/50 border border-border">
             <p className="text-sm font-medium text-foreground mb-2">Demo Credentials</p>
             <div className="space-y-1 text-sm text-muted-foreground">
               <p><span className="font-medium">Admin:</span> john.anderson@company.com</p>
               <p><span className="font-medium">HR:</span> sarah.mitchell@company.com</p>
               <p><span className="font-medium">Password:</span> demo123</p>
             </div>
-          </div>
+          </div> */}
         </div>
       </div>
     </div>
