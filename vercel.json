@@ -1,12 +1,4 @@
 {
-  "version": 2,
-  "buildCommand": "npm run build",
-  "devCommand": "npm run dev",
-  "installCommand": "npm install",
-  "framework": "vite",
-  "env": {
-    "VITE_API_URL": "@api_url"
-  },
   "rewrites": [
     {
       "source": "/(.*)",
